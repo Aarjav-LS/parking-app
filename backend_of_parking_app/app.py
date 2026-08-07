@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 import json
 import os
@@ -12,6 +12,7 @@ CORS(app)
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 status_history = []
+vehicle_logs = []
 
 
 @app.route('/api/spots', methods=['GET'])
@@ -61,11 +62,97 @@ def run_detection():
             }), 500
 
         with open(output_path) as f:
-            status = json.load(f)
+            new_status = json.load(f)
+
+        old_status = {}
+        try:
+            with open(os.path.join(BACKEND_DIR, 'status.json')) as f:
+                old_status = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        now_str = datetime.now().strftime('%H:%M')
+        today_str = datetime.now().strftime('%Y-%m-%d')
+
+        logs_path = os.path.join(BACKEND_DIR, 'vehicle_logs.json')
+        try:
+            with open(logs_path) as f:
+                logs = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            logs = []
+
+        users_path = os.path.join(BACKEND_DIR, 'users.json')
+        try:
+            with open(users_path) as f:
+                users = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            users = []
+
+        user_map = {}
+        for u in users:
+            user_map[u.get('vehicle', '')] = u.get('name', 'Unknown')
+            user_map[u.get('collegeId', '')] = u.get('name', 'Unknown')
+
+        for spot_id, new_state in new_status.items():
+            old_state = old_status.get(spot_id, 'available')
+            if new_state != old_state:
+                plate = spot_id
+                owner = user_map.get(spot_id, 'Unknown')
+                if new_state == 'occupied':
+                    log = {
+                        'id': f"VL-{int(time.time() * 1000)}_{spot_id}",
+                        'vehicle': plate,
+                        'owner': owner,
+                        'type': 'Car',
+                        'entry': now_str,
+                        'exit': '-',
+                        'duration': '-',
+                        'slot': spot_id,
+                        'status': 'Parked',
+                        'date': today_str
+                    }
+                else:
+                    entry_time = '-'
+                    for existing in reversed(logs):
+                        if existing.get('slot') == spot_id and existing.get('status') == 'Parked':
+                            entry_time = existing.get('entry', '-')
+                            break
+                    log = {
+                        'id': f"VL-{int(time.time() * 1000)}_{spot_id}",
+                        'vehicle': plate,
+                        'owner': owner,
+                        'type': 'Car',
+                        'entry': entry_time,
+                        'exit': now_str,
+                        'duration': '-',
+                        'slot': spot_id,
+                        'status': 'Exited',
+                        'date': today_str
+                    }
+                logs.append(log)
+            elif new_state == 'occupied' and old_state == 'available' and not logs:
+                plate = spot_id
+                owner = user_map.get(spot_id, 'Unknown')
+                log = {
+                    'id': f"VL-{int(time.time() * 1000)}_{spot_id}",
+                    'vehicle': plate,
+                    'owner': owner,
+                    'type': 'Car',
+                    'entry': now_str,
+                    'exit': '-',
+                    'duration': '-',
+                    'slot': spot_id,
+                    'status': 'Parked',
+                    'date': today_str
+                }
+                logs.append(log)
+
+        with open(logs_path, 'w') as f:
+            json.dump(logs[-500:], f, indent=2)
 
         now = datetime.now().strftime('%H:%M')
-        occupied = sum(1 for v in status.values() if v == 'occupied')
-        total = len(status)
+        occupied = sum(1 for v in new_status.values() if v == 'occupied')
+        total = len(new_status)
         status_history.append({
             'time': now,
             'occupied': occupied,
@@ -75,7 +162,7 @@ def run_detection():
         if len(status_history) > 200:
             status_history.pop(0)
 
-        return jsonify(status)
+        return jsonify(new_status)
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Detection timed out'}), 504
     except Exception as e:
@@ -88,9 +175,81 @@ def get_settings():
         'backendUrl': request.host_url.rstrip('/'),
         'spotsFile': 'spots.json',
         'statusFile': 'status.json',
-        'yoloModel': 'yolov8m.pt',
+        'usersFile': 'users.json',
+        'yoloModel': 'yolov8n.pt',
         'overlapThreshold': 0.15
     })
+
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    try:
+        with open(os.path.join(BACKEND_DIR, 'users.json')) as f:
+            users = json.load(f)
+        return make_response(json.dumps(users), 200, {'Content-Type': 'application/json'})
+    except FileNotFoundError:
+        return make_response(json.dumps([]), 200, {'Content-Type': 'application/json'})
+
+
+@app.route('/api/register', methods=['POST'])
+def register_user():
+    try:
+        data = request.get_json()
+        users_path = os.path.join(BACKEND_DIR, 'users.json')
+        try:
+            with open(users_path) as f:
+                users = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            users = []
+        new_user = {
+            'id': f"U-{int(time.time())}",
+            'name': data.get('name', ''),
+            'email': data.get('email', ''),
+            'collegeId': data.get('collegeId', ''),
+            'phone': data.get('phone', ''),
+            'vehicle': data.get('vehicle', ''),
+            'type': data.get('type', 'Car'),
+            'status': 'Active'
+        }
+        users.append(new_user)
+        with open(users_path, 'w') as f:
+            json.dump(users, f, indent=2)
+        return jsonify(new_user)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/vehicle-logs', methods=['GET'])
+def get_vehicle_logs():
+    try:
+        logs_path = os.path.join(BACKEND_DIR, 'vehicle_logs.json')
+        try:
+            with open(logs_path) as f:
+                logs = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            logs = []
+        logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        return make_response(json.dumps(logs), 200, {'Content-Type': 'application/json'})
+    except Exception as e:
+        return make_response(json.dumps([]), 200, {'Content-Type': 'application/json'})
+
+
+@app.route('/api/vehicle-logs', methods=['POST'])
+def add_vehicle_log():
+    try:
+        data = request.get_json()
+        logs_path = os.path.join(BACKEND_DIR, 'vehicle_logs.json')
+        try:
+            with open(logs_path) as f:
+                logs = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            logs = []
+        logs.append(data)
+        with open(logs_path, 'w') as f:
+            json.dump(logs, f, indent=2)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/analytics', methods=['GET'])
@@ -151,6 +310,29 @@ def get_analytics():
             row.append(val)
         heatmap.append(row)
 
+    hourly = []
+    hour_buckets = {}
+    for entry in status_history:
+        try:
+            h = datetime.strptime(entry['time'], '%H:%M').hour
+        except Exception:
+            continue
+        if h not in hour_buckets:
+            hour_buckets[h] = []
+        pct = entry.get('occupancyPct')
+        if pct is None:
+            pct = round((entry.get('occupied', 0) / entry.get('total', 1)) * 100) if entry.get('total') else 0
+        hour_buckets[h].append(pct)
+    for h in range(6, 22):
+        vals = hour_buckets.get(h, [])
+        avg = round(sum(vals) / len(vals)) if vals else 0
+        ampm = 'a' if h < 12 else 'p'
+        hour12 = h if h <= 12 else h - 12
+        if hour12 == 0:
+            hour12 = 12
+        label = f"{hour12}{ampm}"
+        hourly.append({'hour': label, 'occupancy': avg})
+
     return jsonify({
         'slotDistribution': [
             {'name': 'Available', 'value': available},
@@ -168,6 +350,7 @@ def get_analytics():
             'hours': hours,
             'data': heatmap
         },
+        'hourly': hourly,
         'summary': {
             'total': total,
             'occupied': occupied,

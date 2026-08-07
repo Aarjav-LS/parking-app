@@ -1,0 +1,42 @@
+[
+  {
+    "id": "U-201",
+    "name": "Aarav Shrestha",
+    "email": "user@college.edu",
+    "collegeId": "BCT-078-201",
+    "phone": "98XXXXXX12",
+    "vehicle": "BA 2 PA 3312",
+    "type": "Car",
+    "status": "Active"
+  },
+  {
+    "id": "U-202",
+    "name": "Priya Gurung",
+    "email": "priya@college.edu",
+    "collegeId": "BCT-078-114",
+    "phone": "98XXXXXX45",
+    "vehicle": "BA 4 CHA 9081",
+    "type": "Bike",
+    "status": "Active"
+  },
+  {
+    "id": "U-203",
+    "name": "Rohit Karki",
+    "email": "rohit@college.edu",
+    "collegeId": "BEI-079-032",
+    "phone": "98XXXXXX76",
+    "vehicle": "BA 1 KHA 5521",
+    "type": "EV",
+    "status": "Active"
+  },
+  {
+    "id": "U-204",
+    "name": "Sneha Rai",
+    "email": "sneha@college.edu",
+    "collegeId": "BCE-077-098",
+    "phone": "98XXXXXX09",
+    "vehicle": "BA 9 PA 1187",
+    "type": "Scooter",
+    "status": "Disabled"
+  }
+]

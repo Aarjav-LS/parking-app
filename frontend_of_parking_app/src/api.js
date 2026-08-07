@@ -32,6 +32,27 @@ export async function getAnalytics() {
   return fetchJSON(`${BACKEND_URL}/api/analytics`);
 }
 
+export async function getUsers() {
+  return fetchJSON(`${BACKEND_URL}/api/users`);
+}
+
+export async function registerUser(data) {
+  const res = await fetch(`${BACKEND_URL}/api/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Registration failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getVehicleLogs() {
+  return fetchJSON(`${BACKEND_URL}/api/vehicle-logs`);
+}
+
 export async function healthCheck() {
   return fetchJSON(`${BACKEND_URL}/health`);
 }
