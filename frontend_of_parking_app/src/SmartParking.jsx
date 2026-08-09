@@ -35,12 +35,15 @@ function spotsToSlots(spots, status) {
     const bx = b.points.reduce((s, p) => s + p[0], 0) / b.points.length;
     return ax - bx;
   });
+  const allY = sorted.flatMap(s => s.points.map(p => p[1]));
+  const maxY = Math.max(...allY);
+  const rowThreshold = maxY <= 1.0 ? 0.15 : 100;
   const rowGroups = [];
   let currentGroup = [sorted[0]];
   let currentAvgY = sorted[0].points.reduce((s, p) => s + p[1], 0) / sorted[0].points.length;
   for (let i = 1; i < sorted.length; i++) {
     const avgY = sorted[i].points.reduce((s, p) => s + p[1], 0) / sorted[i].points.length;
-    if (avgY - currentAvgY < 100) {
+    if (avgY - currentAvgY < rowThreshold) {
       currentGroup.push(sorted[i]);
       currentAvgY = (currentAvgY * (currentGroup.length - 1) + avgY) / currentGroup.length;
     } else {

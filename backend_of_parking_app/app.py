@@ -11,7 +11,12 @@ app = Flask(__name__)
 CORS(app)
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-status_history = []
+status_history_path = os.path.join(BACKEND_DIR, 'status_history.json')
+try:
+    with open(status_history_path) as f:
+        status_history = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    status_history = []
 vehicle_logs = []
 
 
@@ -19,7 +24,11 @@ vehicle_logs = []
 def get_spots():
     try:
         with open(os.path.join(BACKEND_DIR, 'spots.json')) as f:
-            spots = json.load(f)
+            data = json.load(f)
+        if isinstance(data, dict):
+            spots = data.get('spots', [])
+        else:
+            spots = data
         return jsonify(spots)
     except FileNotFoundError:
         return jsonify([])
@@ -162,6 +171,12 @@ def run_detection():
         if len(status_history) > 200:
             status_history.pop(0)
 
+        try:
+            with open(status_history_path, 'w') as f:
+                json.dump(status_history, f, indent=2)
+        except Exception:
+            pass
+
         return jsonify(new_status)
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Detection timed out'}), 504
@@ -292,6 +307,14 @@ def get_analytics():
             'time': entry['time'],
             'occupied': entry['occupied'],
             'available': entry['available']
+        })
+
+    if not timeline:
+        now = datetime.now().strftime('%H:%M')
+        timeline.append({
+            'time': now,
+            'occupied': occupied,
+            'available': available
         })
 
     weekly = []
