@@ -188,7 +188,7 @@ const VEHICLE_ICON = { Car, Bike, Scooter, EV: Zap, Bicycle: Bike, Other: Car };
 function useSlotCounts(slots) {
   return useMemo(() => {
     const c = { available: 0, occupied: 0, reserved: 0, unavailable: 0 };
-    slots.forEach((s) => (c[s.status] = (c[s.status] || 0) + 1));
+    slots.forEach((s) => { if (c[s.status] !== undefined) c[s.status] += 1; });
     return { ...c, total: slots.length };
   }, [slots]);
 }
@@ -1764,7 +1764,11 @@ export default function App() {
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (Object.keys(prev).length === 0) {
-      prevStatusRef.current = { ...status };
+      prevStatusRef.current = status && typeof status === 'object' ? { ...status } : {};
+      return;
+    }
+    if (!status || typeof status !== 'object') {
+      prevStatusRef.current = {};
       return;
     }
     const newActivity = [];

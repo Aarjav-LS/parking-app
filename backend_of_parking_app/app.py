@@ -191,7 +191,7 @@ def get_settings():
         'spotsFile': 'spots.json',
         'statusFile': 'status.json',
         'usersFile': 'users.json',
-        'yoloModel': 'yolov8n.pt',
+        'yoloModel': 'yolov8m.pt',
         'overlapThreshold': 0.15
     })
 

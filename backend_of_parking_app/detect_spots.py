@@ -230,7 +230,6 @@ def main():
     parser.add_argument("--interval", type=float, default=5.0,
                          help="Seconds between checks when running on --video")
     parser.add_argument("--show", action="store_true", help="Show a debug window with boxes drawn")
-    parser.add_argument("--model", default="runs/detect/toy_car_train/weights/yolov8m.pt", help="YOLOv8 model weights path")
     parser.add_argument("--classes", default="", help="Comma-separated class names to count as vehicles, e.g. 'toy_car,car'")
     args = parser.parse_args()
 
@@ -246,8 +245,8 @@ def main():
     else:
         spots = data
 
-    print(f"Loading YOLOv8 model from {args.model} (first run may download weights)...")
-    model = YOLO(args.model)
+    print(f"Loading YOLOv8 model from yolov8m.pt (first run may download weights)...")
+    model = YOLO("yolov8m.pt")
 
     if args.image:
         frame = cv2.imread(args.image)
